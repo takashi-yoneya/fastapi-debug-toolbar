@@ -3,6 +3,8 @@ import json
 import re
 import typing as t
 from collections import defaultdict
+import datetime
+import enum
 
 import sqlparse
 from fastapi import Request, Response
@@ -117,8 +119,18 @@ class SQLPanel(Panel):
         similar: t.Dict[str, t.Dict[str, t.Any]] = defaultdict(lambda: defaultdict(int))
         width_ratio_tally = 0
 
+        def _json_custom_serializer(obj: t.Any) -> t.Any:
+            # Serialize datetime or date -> str(isoformat)
+            if isinstance(obj, (datetime.datetime, datetime.date)):
+                return obj.isoformat()
+            # Serialize enum -> str
+            if isinstance(obj, enum.Enum):
+                return obj.value
+            # Otherwise, support is not available.
+            raise TypeError("Type %s not serializable" % type(obj))
+
         def dup_key(query: t.Dict[str, t.Any]) -> t.Tuple[str, str]:
-            return (query["sql"], json.dumps(query["params"]))
+            return (query["sql"], json.dumps(query["params"], default=_json_custom_serializer))
 
         def sim_key(query: t.Dict[str, t.Any]) -> str:
             return query.get("raw", query.get("sql"))
